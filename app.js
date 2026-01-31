@@ -160,8 +160,13 @@ const App = {
             container.appendChild(div);
         });
 
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
+        // Smooth scroll to bottom after animation
+        requestAnimationFrame(() => {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
     },
 
     formatMarkdown(text) {
