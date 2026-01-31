@@ -111,19 +111,19 @@ const API = {
     },
 
     async sendGoogle(systemPrompt, messages, apiKey, model) {
-        const contents = [];
-
-        // Add system instruction as first user message context
-        const formattedMessages = messages.map(m => ({
+        // Format messages for Gemini
+        const contents = messages.map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: m.content }]
         }));
 
         // Prepend system prompt to first user message
-        if (formattedMessages.length > 0 && formattedMessages[0].role === 'user') {
-            formattedMessages[0].parts[0].text =
-                `[System Instructions]\n${systemPrompt}\n\n[User Message]\n${formattedMessages[0].parts[0].text}`;
+        if (contents.length > 0 && contents[0].role === 'user') {
+            contents[0].parts[0].text =
+                `[System Instructions]\n${systemPrompt}\n\n[User Message]\n${contents[0].parts[0].text}`;
         }
+
+        console.log('Sending to Gemini:', { model, messagesCount: contents.length });
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -133,7 +133,7 @@ const API = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    contents: formattedMessages,
+                    contents: contents,
                     generationConfig: {
                         maxOutputTokens: 4096
                     }
@@ -142,11 +142,25 @@ const API = {
         );
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Google API error');
+            const errorText = await response.text();
+            console.error('Gemini API error:', errorText);
+            let errorMessage = 'Google API error';
+            try {
+                const error = JSON.parse(errorText);
+                errorMessage = error.error?.message || errorMessage;
+            } catch (e) {
+                errorMessage = errorText.substring(0, 100);
+            }
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
+        console.log('Gemini response:', data);
+
+        if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+            throw new Error('Unexpected response format from Gemini');
+        }
+
         return data.candidates[0].content.parts[0].text;
     }
 };

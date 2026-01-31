@@ -126,16 +126,26 @@ const App = {
     renderMessages() {
         const container = document.getElementById('messages');
 
-        // Keep welcome message, remove others
-        const welcomeMsg = container.querySelector('.message.system');
-
         if (this.messages.length === 0) {
-            container.innerHTML = '';
-            if (welcomeMsg) container.appendChild(welcomeMsg);
+            // Show welcome message
+            container.innerHTML = `
+                <div class="message system">
+                    <div class="message-content">
+                        <h3>Добро пожаловать в Social Design Foundations!</h3>
+                        <p>Интерактивный курс по проектированию кооперативных форматов.</p>
+                        <p>Для начала <button id="open-settings-inline" class="btn-link">настрой API</button>, затем нажми "Начать курс".</p>
+                    </div>
+                </div>
+            `;
+            // Rebind settings link
+            const settingsLink = document.getElementById('open-settings-inline');
+            if (settingsLink) {
+                settingsLink.addEventListener('click', () => this.openSettings());
+            }
             return;
         }
 
-        // Hide welcome when there are messages
+        // Show messages when there are any
         container.innerHTML = '';
 
         this.messages.forEach(msg => {
@@ -234,6 +244,8 @@ const App = {
     },
 
     async startModule() {
+        console.log('startModule called, messages:', this.messages.length);
+
         if (this.messages.length > 0) {
             // Continue from where we left off
             document.getElementById('user-input').disabled = false;
@@ -244,10 +256,14 @@ const App = {
 
         // Start fresh
         this.setLoading(true);
+        this.setStatus('Запускаю курс...', 'loading');
 
         try {
             const settings = Storage.getSettings();
+            console.log('Settings:', { provider: settings.provider, model: settings.model, hasKey: !!settings.apiKey });
+
             const systemPrompt = Course.getSystemPrompt(this.currentModule);
+            console.log('System prompt length:', systemPrompt.length);
 
             // Initial message to start the module
             const response = await API.sendMessage(
@@ -255,6 +271,8 @@ const App = {
                 [{ role: 'user', content: 'Начинаем!' }],
                 settings
             );
+
+            console.log('Got response, length:', response.length);
 
             this.messages = [
                 { role: 'user', content: 'Начинаем!' },
@@ -269,7 +287,10 @@ const App = {
             document.getElementById('user-input').focus();
 
         } catch (error) {
+            console.error('startModule error:', error);
             this.setStatus('Ошибка: ' + error.message, 'error');
+            // Show error in messages area too
+            this.addSystemMessage('❌ Ошибка API: ' + error.message + '. Проверь API-ключ и попробуй снова.');
         } finally {
             this.setLoading(false);
         }
